@@ -1,5 +1,12 @@
 <?php
 session_start();
+
+/*
+|--------------------------------------------------------------------------
+| Controle de acesso
+|--------------------------------------------------------------------------
+| O dashboard só pode ser acessado por usuários autenticados.
+*/
 if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
     header('Location: login.php');
     exit;
@@ -9,20 +16,43 @@ require_once __DIR__ . '/Conexao.php';
 require_once __DIR__ . '/DashboardService.php';
 
 try {
+    /*
+    |--------------------------------------------------------------------------
+    | Conexão com o banco
+    |--------------------------------------------------------------------------
+    | A página depende da camada de serviço para montar os dados do painel.
+    */
     $pdo = Conexao::getInstancia();
-    $userId = $_SESSION['user_id'] ?? 1; // Fallback temporário caso a sessão antiga não tenha user_id
+    $userId = (int)($_SESSION['user_id'] ?? 0);
+
+    if ($userId <= 0) {
+        throw new Exception('Usuário não identificado na sessão.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dados do dashboard
+    |--------------------------------------------------------------------------
+    | O serviço centraliza toda a lógica de consulta e consolidação.
+    */
     $dados = DashboardService::getDashboardData($pdo, $userId);
     $filtrosModal = DashboardService::getFiltrosModal($pdo, $userId);
 } catch (Throwable $e) {
     die("Erro ao carregar dashboard: " . $e->getMessage());
 }
 
-$nomeUsuario = $dados['nomeUsuario'];
-$saldoTotal = 'R$ ' . number_format($dados['saldoTotal'], 2, ',', '.');
-$receitasMes = 'R$ ' . number_format($dados['receitasMes'], 2, ',', '.');
-$despesasMes = 'R$ ' . number_format($dados['despesasMes'], 2, ',', '.');
-$orcamentoMes = $dados['orcamentoMes'];
-$metaMes = $dados['metaMesProgresso'];
+/*
+|--------------------------------------------------------------------------
+| Valores auxiliares para exibição
+|--------------------------------------------------------------------------
+| Padroniza formato monetário e evita repetição no HTML.
+*/
+$nomeUsuario = $dados['nomeUsuario'] ?? 'Usuário';
+$saldoTotal = 'R$ ' . number_format((float)($dados['saldoTotal'] ?? 0), 2, ',', '.');
+$receitasMes = 'R$ ' . number_format((float)($dados['receitasMes'] ?? 0), 2, ',', '.');
+$despesasMes = 'R$ ' . number_format((float)($dados['despesasMes'] ?? 0), 2, ',', '.');
+$orcamentoMes = $dados['orcamentoMes'] ?? 0;
+$metaMes = $dados['metaMesProgresso'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -88,13 +118,9 @@ $metaMes = $dados['metaMesProgresso'];
         .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;font-size:12px;margin-top:12px;}
         .day{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px;text-align:center;min-height:56px;}
         .day.today{background:#e0f2fe;border-color:#7dd3fc;font-weight:700;}
-        
-        /* Animations */
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideRight { from { width: 0%; opacity: 0; } to { opacity: 1; } }
         @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-
-        /* Modal Styles */
         .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; padding: 20px; opacity: 0; transition: opacity 0.3s ease;}
         .modal-backdrop.active { display: flex; opacity: 1; }
         .modal-backdrop.active .modal { animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -114,7 +140,6 @@ $metaMes = $dados['metaMesProgresso'];
         .btn-secondary:hover { background: #f3f4f6; }
         .btn-save { background: #288CFA; border: none; color: #fff; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: .2s; }
         .btn-save:hover { background: #1c7ad0; }
-        
         @media (max-width: 1200px){.grid-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}.grid-main,.double-grid{grid-template-columns:1fr;}.dashboard-shell{grid-template-columns:1fr;}.sidebar{height:auto;position:relative;}}
         @media (max-width: 640px){.grid-kpis{grid-template-columns:1fr;}.topbar{flex-direction:column;align-items:flex-start;}.content{padding:16px;}.form-grid{grid-template-columns:1fr;}}
     </style>
@@ -131,12 +156,12 @@ $metaMes = $dados['metaMesProgresso'];
         </div>
         <nav class="menu">
             <a href="#" class="active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-            <a href="#"><i class="fa-solid fa-right-left"></i> Movimentações</a>
+            <a href="movimentacoes.php"><i class="fa-solid fa-right-left"></i> Movimentações</a>
             <a href="contas.php"><i class="fa-solid fa-wallet"></i> Contas</a>
-            <a href="#"><i class="fa-solid fa-tags"></i> Categorias</a>
-            <a href="#"><i class="fa-solid fa-bullseye"></i> Metas</a>
-            <a href="#"><i class="fa-solid fa-chart-column"></i> Relatórios</a>
-            <a href="#"><i class="fa-solid fa-gear"></i> Configurações</a>
+            <a href="categoria.php"><i class="fa-solid fa-tags"></i> Categorias</a>
+            <a href="metas.php"><i class="fa-solid fa-bullseye"></i> Metas</a>
+            <a href="relatorios.php"><i class="fa-solid fa-chart-column"></i> Relatórios</a>
+            <a href="configuracoes.php"><i class="fa-solid fa-gear"></i> Configurações</a>
             <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</a>
         </nav>
     </aside>
@@ -246,7 +271,6 @@ $metaMes = $dados['metaMesProgresso'];
     </main>
 </div>
 
-<!-- Modal Novo Lançamento -->
 <div class="modal-backdrop" id="novoLancamentoModal">
     <div class="modal">
         <div class="modal-header">
@@ -348,27 +372,99 @@ $metaMes = $dados['metaMesProgresso'];
 
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" onclick="fecharModal()">Cancelar</button>
-                <button type="submit" class="btn-save">
-                    <i class="fa-solid fa-floppy-disk"></i> Salvar
-                </button>
+                <button type="submit" class="btn-save"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
+function carregarCategorias(tipo) {
+    const selectCategoria = document.getElementById('id_categoria');
+    if (!selectCategoria) return;
+
+    const t = (tipo || '').trim().toUpperCase();
+    const useFiltro = (t === 'RECEITA' || t === 'DESPESA');
+
+    if (!useFiltro) {
+        selectCategoria.innerHTML = '<option value="">Selecione</option>';
+        return;
+    }
+
+    selectCategoria.disabled = true;
+    selectCategoria.innerHTML = '<option value="">Carregando...</option>';
+
+    fetch('categorias_por_tipo.php?tipo=' + encodeURIComponent(t), {
+        cache: 'no-store'
+    })
+        .then(r => r.text())
+        .then(html => {
+            const conteudo = (html || '').trim();
+            selectCategoria.innerHTML = '<option value="">Selecione</option>' + conteudo;
+        })
+        .catch(() => {
+            selectCategoria.innerHTML = '<option value="">Selecione</option>';
+        })
+        .finally(() => {
+            selectCategoria.disabled = false;
+        });
+}
+
 function abrirModal() {
     document.getElementById('novoLancamentoModal').classList.add('active');
 }
+
 function fecharModal() {
     document.getElementById('novoLancamentoModal').classList.remove('active');
 }
+
 function toggleDestino() {
     const tipo = document.getElementById('tipo').value;
     const boxDestino = document.getElementById('box_conta_destino');
     const boxCat = document.getElementById('box_categoria');
     const inputDestino = document.getElementById('id_conta_destino');
-    
+    const selectCategoria = document.getElementById('id_categoria');
+
+    if (tipo === 'TRANSFERENCIA') {
+        boxDestino.style.display = 'flex';
+        inputDestino.required = true;
+        boxCat.style.display = 'none';
+        selectCategoria.innerHTML = '<option value="">Selecione</option>';
+    } else if (tipo === 'AJUSTE') {
+        boxDestino.style.display = 'none';
+        inputDestino.required = false;
+        inputDestino.value = '';
+        boxCat.style.display = 'flex';
+        selectCategoria.innerHTML = '<option value="">Selecione</option>';
+    } else if (tipo === 'RECEITA' || tipo === 'DESPESA') {
+        boxDestino.style.display = 'none';
+        inputDestino.required = false;
+        inputDestino.value = '';
+        boxCat.style.display = 'flex';
+        carregarCategorias(tipo);
+    } else {
+        boxDestino.style.display = 'none';
+        inputDestino.required = false;
+        inputDestino.value = '';
+        boxCat.style.display = 'flex';
+        selectCategoria.innerHTML = '<option value="">Selecione</option>';
+    }
+}
+
+function abrirModal() {
+    document.getElementById('novoLancamentoModal').classList.add('active');
+}
+
+function fecharModal() {
+    document.getElementById('novoLancamentoModal').classList.remove('active');
+}
+
+function toggleDestino() {
+    const tipo = document.getElementById('tipo').value;
+    const boxDestino = document.getElementById('box_conta_destino');
+    const boxCat = document.getElementById('box_categoria');
+    const inputDestino = document.getElementById('id_conta_destino');
+
     if (tipo === 'TRANSFERENCIA') {
         boxDestino.style.display = 'flex';
         inputDestino.required = true;
@@ -378,10 +474,10 @@ function toggleDestino() {
         inputDestino.required = false;
         inputDestino.value = '';
         boxCat.style.display = 'flex';
+        carregarCategorias(tipo);
     }
 }
 
-// Chart init original
 const ctx = document.getElementById('financeChart');
 if (ctx) {
     new Chart(ctx, {
@@ -401,6 +497,13 @@ if (ctx) {
         }
     });
 }
+
+window.addEventListener('keydown', e => {
+    if (e.key === 'Escape') fecharModal();
+});
+document.getElementById('novoLancamentoModal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) fecharModal();
+});
 </script>
 </body>
 </html>

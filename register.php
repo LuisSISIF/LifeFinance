@@ -1,10 +1,23 @@
 <?php
+/*
+|--------------------------------------------------------------------------
+| Cadastro de usuário
+|--------------------------------------------------------------------------
+| Este arquivo registra um novo usuário e cria também o perfil associado.
+| O processo é validado, protegido por transação e utiliza hash de senha.
+*/
 require_once __DIR__ . '/Conexao.php';
 
 $errors = [];
 $success = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    /*
+    |--------------------------------------------------------------------------
+    | Captura e normalização dos dados
+    |--------------------------------------------------------------------------
+    | Os campos são tratados antes da validação para evitar inconsistências.
+    */
     $nome = trim($_POST['nome'] ?? '');
     $sobrenome = trim($_POST['sobrenome'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -13,6 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data_nascimento = $_POST['data_nascimento'] ?? null;
     $sexo = $_POST['sexo'] ?? null;
 
+    /*
+    |--------------------------------------------------------------------------
+    | Validação dos campos
+    |--------------------------------------------------------------------------
+    | Garante que os dados obrigatórios estejam corretos antes de gravar.
+    */
     if ($nome === '') $errors[] = 'Informe seu nome.';
     if ($sobrenome === '') $errors[] = 'Informe seu sobrenome.';
     if ($email === '') $errors[] = 'Informe seu e-mail.';
@@ -20,30 +39,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($senha === '') $errors[] = 'Informe sua senha.';
     elseif (strlen($senha) < 8) $errors[] = 'A senha deve ter no mínimo 8 caracteres.';
     if ($senha !== $senha_confirmar) $errors[] = 'As senhas não conferem.';
-    if ($sexo === '' || !in_array($sexo, ['M','F','O'], true)) $errors[] = 'Selecione um sexo válido.';
+    if ($sexo === '' || !in_array($sexo, ['M', 'F', 'O'], true)) $errors[] = 'Selecione um sexo válido.';
 
     if ($data_nascimento !== '') {
         $dt = DateTime::createFromFormat('Y-m-d', $data_nascimento);
-        if (!$dt || $dt->format('Y-m-d') !== $data_nascimento) $errors[] = 'Data de nascimento inválida.';
+        if (!$dt || $dt->format('Y-m-d') !== $data_nascimento) {
+            $errors[] = 'Data de nascimento inválida.';
+        }
     } else {
         $data_nascimento = null;
     }
 
     try {
+        /*
+        |--------------------------------------------------------------------------
+        | Conexão com o banco
+        |--------------------------------------------------------------------------
+        | O cadastro usa PDO para executar consultas seguras.
+        */
         $pdo = Conexao::getInstancia();
 
+        /*
+        |--------------------------------------------------------------------------
+        | Verificação de e-mail duplicado
+        |--------------------------------------------------------------------------
+        | Impede que o mesmo e-mail seja cadastrado mais de uma vez.
+        */
         $stmt = $pdo->prepare('SELECT id FROM usuarios WHERE email = :email LIMIT 1');
         $stmt->execute([':email' => $email]);
         if ($stmt->fetch()) {
             $errors[] = 'Este e-mail já está cadastrado.';
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Inserção do usuário
+        |--------------------------------------------------------------------------
+        | Caso não haja erros, o usuário é gravado junto com o perfil.
+        */
         if (!$errors) {
             $pdo->beginTransaction();
 
             $senhaHash = password_hash($senha, PASSWORD_DEFAULT);
 
-            $stmt = $pdo->prepare('INSERT INTO usuarios (email, senha_hash, email_verificado_em, forcar_2fa, status, criado_em, atualizado_em) VALUES (:email, :senha_hash, NULL, 0, \'ATIVO\', NOW(), NOW())');
+            $stmt = $pdo->prepare('
+                INSERT INTO usuarios
+                (email, senha_hash, email_verificado_em, forcar_2fa, status, criado_em, atualizado_em)
+                VALUES
+                (:email, :senha_hash, NULL, 0, \'ATIVO\', NOW(), NOW())
+            ');
             $stmt->execute([
                 ':email' => $email,
                 ':senha_hash' => $senhaHash,
@@ -51,7 +95,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $idUsuario = (int)$pdo->lastInsertId();
 
-            $stmt = $pdo->prepare('INSERT INTO perfis_usuarios (id_usuario, nome, sobrenome, data_nascimento, sexo, idioma, moeda_exibicao, criado_em, atualizado_em) VALUES (:id_usuario, :nome, :sobrenome, :data_nascimento, :sexo, :idioma, :moeda_exibicao, NOW(), NOW())');
+            /*
+            |--------------------------------------------------------------------------
+            | Criação do perfil
+            |--------------------------------------------------------------------------
+            | O perfil do usuário é criado logo após o registro principal.
+            */
+            $stmt = $pdo->prepare('
+                INSERT INTO perfis_usuarios
+                (id_usuario, nome, sobrenome, data_nascimento, sexo, idioma, moeda_exibicao, criado_em, atualizado_em)
+                VALUES
+                (:id_usuario, :nome, :sobrenome, :data_nascimento, :sexo, :idioma, :moeda_exibicao, NOW(), NOW())
+            ');
             $stmt->execute([
                 ':id_usuario' => $idUsuario,
                 ':nome' => $nome,
@@ -67,7 +122,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
     } catch (Throwable $e) {
-        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+        if (isset($pdo) && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         $errors[] = 'Erro ao cadastrar: ' . $e->getMessage();
     }
 }

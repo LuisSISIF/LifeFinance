@@ -1,37 +1,88 @@
 <?php
-// Exemplo de login com PHP (sem DB real, apenas para UI)
+/*
+|--------------------------------------------------------------------------
+| Página de login
+|--------------------------------------------------------------------------
+| Este arquivo autentica o usuário, valida credenciais e inicia a sessão.
+| Ele também redireciona o usuário conforme o perfil de acesso.
+*/
 session_start();
 
 $errors = [];
 
+/*
+|--------------------------------------------------------------------------
+| Processamento do formulário
+|--------------------------------------------------------------------------
+| A lógica abaixo é executada apenas quando o formulário é enviado via POST.
+*/
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
+    /*
+    |--------------------------------------------------------------------------
+    | Validação básica dos campos
+    |--------------------------------------------------------------------------
+    | Garante que e-mail e senha sejam informados antes de consultar o banco.
+    */
     if (empty($email)) {
-        $errors[] = 'Informe seu e‑mail.';
+        $errors[] = 'Informe seu e-mail.';
     }
+
     if (empty($password)) {
         $errors[] = 'Informe sua senha.';
     }
 
     if (empty($errors)) {
         require_once __DIR__ . '/Conexao.php';
-        try {
-            $pdo = Conexao::getInstancia();
-            $stmt = $pdo->prepare('SELECT id, senha_hash, status FROM usuarios WHERE email = :email LIMIT 1');
-            $stmt->execute([':email' => $email]);
-            $user = $stmt->fetch();
 
+        try {
+            /*
+            |--------------------------------------------------------------------------
+            | Consulta do usuário
+            |--------------------------------------------------------------------------
+            | Busca o usuário pelo e-mail utilizando prepared statement.
+            */
+            $pdo = Conexao::getInstancia();
+            $stmt = $pdo->prepare('SELECT id, senha_hash, status, role FROM usuarios WHERE email = :email LIMIT 1');
+            $stmt->execute([':email' => $email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Verificação de senha
+            |--------------------------------------------------------------------------
+            | password_verify garante comparação segura com hash.
+            */
             if ($user && password_verify($password, $user['senha_hash'])) {
                 if ($user['status'] !== 'ATIVO') {
                     $errors[] = 'Sua conta não está ativa.';
                 } else {
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Segurança de sessão
+                    |--------------------------------------------------------------------------
+                    | Regenera o ID da sessão para reduzir risco de session fixation.
+                    */
                     session_regenerate_id(true);
+
                     $_SESSION['authenticated'] = true;
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['email'] = $email;
-                    header('Location: dashboard.php');
+                    $_SESSION['role'] = $user['role'] ?? 'USER';
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Redirecionamento por perfil
+                    |--------------------------------------------------------------------------
+                    | Admin vai para o painel administrativo; demais usuários vão ao dashboard.
+                    */
+                    if ($_SESSION['role'] === 'ADMIN') {
+                        header('Location: admin_usuarios.php');
+                    } else {
+                        header('Location: dashboard.php');
+                    }
                     exit;
                 }
             } else {

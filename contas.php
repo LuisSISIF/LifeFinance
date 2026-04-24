@@ -1,5 +1,12 @@
 <?php
 session_start();
+
+/*
+|--------------------------------------------------------------------------
+| Controle de autenticação
+|--------------------------------------------------------------------------
+| A página só pode ser acessada por usuários autenticados.
+*/
 if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
     header('Location: login.php');
     exit;
@@ -9,14 +16,27 @@ require_once __DIR__ . '/Conexao.php';
 require_once __DIR__ . '/ContasService.php';
 
 try {
+    /*
+    |--------------------------------------------------------------------------
+    | Conexão e carregamento dos dados
+    |--------------------------------------------------------------------------
+    | A lógica de consulta está centralizada no serviço ContasService.
+    */
     $pdo = Conexao::getInstancia();
-    $userId = $_SESSION['user_id'] ?? 1; // Fallback
+    $userId = $_SESSION['user_id'] ?? 1; // Fallback em caso de sessão vazia.
+
     $dados = ContasService::getDadosPaginaContas($pdo, $userId);
     $tiposConta = ContasService::getTiposConta($pdo);
 } catch (Throwable $e) {
     die("Erro ao carregar contas: " . $e->getMessage());
 }
 
+/*
+|--------------------------------------------------------------------------
+| Valores auxiliares para exibição
+|--------------------------------------------------------------------------
+| Padroniza a apresentação de saldo e meta.
+*/
 $saldoTotalStr = 'R$ ' . number_format($dados['saldoConsolidado'], 2, ',', '.');
 $metaVal = $dados['painelLateral']['metaSaldo']['valor_meta'];
 $metaFalta = 'R$ ' . number_format($dados['painelLateral']['metaSaldo']['falta'], 2, ',', '.');
