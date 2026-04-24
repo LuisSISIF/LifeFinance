@@ -137,7 +137,7 @@ $metaMes = $dados['metaMesProgresso'];
             <a href="#"><i class="fa-solid fa-bullseye"></i> Metas</a>
             <a href="#"><i class="fa-solid fa-chart-column"></i> Relatórios</a>
             <a href="#"><i class="fa-solid fa-gear"></i> Configurações</a>
-            <a href="login.php"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</a>
+            <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</a>
         </nav>
     </aside>
 

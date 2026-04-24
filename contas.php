@@ -143,6 +143,7 @@ $metaFalta = 'R$ ' . number_format($dados['painelLateral']['metaSaldo']['falta']
             <a href="metas.php"><i class="fa-solid fa-bullseye"></i> Metas</a>
             <a href="relatorios.php"><i class="fa-solid fa-chart-column"></i> Relatórios</a>
             <a href="configuracoes.php"><i class="fa-solid fa-gear"></i> Configurações</a>
+            <a href="logout.php"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sair</a>
         </nav>
     </aside>
 
