@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="form-row">
-                    <a href="forgot-password.php" class="form-row-link">
+                    <a href="redefinir_senha.php" class="form-row-link">
                         <i class="fas fa-key"></i> Esqueceu a senha?
                     </a>
                 </div>
