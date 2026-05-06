@@ -100,7 +100,7 @@ class ContasService
         | Retorna todas as contas do usuário para exibição na tabela principal.
         */
         $stmt = $pdo->prepare('
-            SELECT c.id, c.nome, c.saldo, c.ativa, c.principal,
+            SELECT c.id, c.nome, c.saldo, c.ativa, c.principal, c.id_tipo_conta, c.descricao,
                    t.categoria as tipo_categoria, t.nome as tipo_nome
             FROM contas c
             LEFT JOIN tipos_conta t ON c.id_tipo_conta = t.id
